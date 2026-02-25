@@ -2,7 +2,7 @@ set -euo pipefail
 
 # ------------------ Tanya user tentang adapter ------------------
 read -p "Apakah Anda sudah tahu nama adapter yang menuju ke internet dengan IP Public? (y/n): " ANSWER
-if [[ "$ANSWER" == "y" || "$ANSWER" == "Y" ]]; then
+if [[ "$ANSWER" == "n" || "$ANSWER" == "N" ]]; then
     echo "Menampilkan informasi adapter:"
     ip a
 fi
