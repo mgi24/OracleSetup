@@ -127,25 +127,42 @@ echo "Interface wg0 aktif."
 # ------------------ Configure iptables forwarding rules ------------------
 echo "Mengkonfigurasi iptables forwarding rules..."
 
-# Remove existing rules to prevent duplicates
-iptables -D FORWARD -i "$ADAPTER" -o wg0 -j ACCEPT 2>/dev/null || true
-iptables -D FORWARD -i wg0 -o "$ADAPTER" -j ACCEPT 2>/dev/null || true
-iptables -D FORWARD -i wg0 -o wg0 -j ACCEPT 2>/dev/null || true
+# Hapus default reject Oracle Cloud (jika ada)
+while iptables -C INPUT -j REJECT --reject-with icmp-host-prohibited 2>/dev/null; do
+    iptables -D INPUT -j REJECT --reject-with icmp-host-prohibited
+done
+while iptables -C FORWARD -j REJECT --reject-with icmp-host-prohibited 2>/dev/null; do
+    iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited
+done
 
-# Allow input UDP traffic on WireGuard port
-iptables -D INPUT -p udp --dport "$SRV_PORT" -j ACCEPT 2>/dev/null || true
-iptables -I INPUT 1 -p udp --dport "$SRV_PORT" -j ACCEPT
+# Fungsi helper agar rules tidak dobel
+ensure_filter_rule() {
+    local chain="$1"
+    shift
+    while iptables -C "$chain" "$@" 2>/dev/null; do
+        iptables -D "$chain" "$@"
+    done
+    iptables -I "$chain" 1 "$@"
+}
 
-# Insert at beginning (before REJECT rule)
-iptables -I FORWARD 1 -i wg0 -o wg0 -j ACCEPT
-iptables -I FORWARD 2 -i "$ADAPTER" -o wg0 -j ACCEPT
-iptables -I FORWARD 3 -i wg0 -o "$ADAPTER" -j ACCEPT
+ensure_nat_rule() {
+    while iptables -t nat -C POSTROUTING "$@" 2>/dev/null; do
+        iptables -t nat -D POSTROUTING "$@"
+    done
+    iptables -t nat -A POSTROUTING "$@"
+}
 
-# Configure NAT/MASQUERADE for routing
-iptables -t nat -D POSTROUTING -o "$ADAPTER" -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D POSTROUTING -o wg0 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -A POSTROUTING -o "$ADAPTER" -j MASQUERADE
-iptables -t nat -A POSTROUTING -o wg0 -j MASQUERADE
+# Allow input UDP traffic on WireGuard port (tanpa dobel)
+ensure_filter_rule INPUT -p udp --dport "$SRV_PORT" -j ACCEPT
+
+# FORWARD rules (tanpa dobel)
+ensure_filter_rule FORWARD -i wg0 -o wg0 -j ACCEPT
+ensure_filter_rule FORWARD -i "$ADAPTER" -o wg0 -j ACCEPT
+ensure_filter_rule FORWARD -i wg0 -o "$ADAPTER" -j ACCEPT
+
+# NAT/MASQUERADE rules (tanpa dobel)
+ensure_nat_rule -o "$ADAPTER" -j MASQUERADE
+ensure_nat_rule -o wg0 -j MASQUERADE
 
 echo "iptables forwarding rules telah ditambahkan."
 echo ""
