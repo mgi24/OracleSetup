@@ -24,7 +24,6 @@ PUBLIC_IP="$(detect_public_ip)"
 ENDPOINT="${PUBLIC_IP}:${WG_PORT}"
 
 read -p "Input nama peer: " PEER_NAME
-read -p "Komentar peer (mis: windows/iphone) [opsional]: " PEER_COMMENT
 
 read -p "Gunakan preshared key? (y/n): " USE_PSK
 
@@ -61,9 +60,6 @@ if [[ "$USE_PSK_FLAG" == true ]]; then
 fi
 
 PEER_HEADER="# Peer: ${PEER_NAME}"
-if [[ -n "${PEER_COMMENT}" ]]; then
-  PEER_HEADER="${PEER_HEADER} (${PEER_COMMENT})"
-fi
 
 if grep -qF "$PUBKEY" "$WG_CONF" 2>/dev/null; then
   echo "Peer dengan public key ini sudah ada di $WG_CONF (skip append)."
